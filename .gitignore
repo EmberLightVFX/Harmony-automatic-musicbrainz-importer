@@ -1,3 +1,9 @@
+# Custom files
+cookies.json
+screenshots/
+covers/
+ff_profile/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
