@@ -1,0 +1,18 @@
+[project]
+name = "harmony-automatic-musicbrainz-importer"
+version = "0.1.0"
+description = "Automatically import Spotify albums to MusicBrainz using Harmony"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+keywords = ["musicbrainz", "harmony", "spotify", "automation"]
+authors = [
+    { name="EmberLightVFX" }
+]
+dependencies = [
+    "chime>=0.7.0",
+    "pillow>=12.0.0",
+    "pyperclip>=1.11.0",
+    "python-dotenv>=1.1.1",
+    "selenium>=4.37.0",
+]
