@@ -235,7 +235,6 @@ class HarmonyDriver:
                     search_button.click()
 
                     logging.info("Find correct search list")
-                    print(search_input.get_attribute("id"))
                     search_list = self.wait_find_element(
                         By.CSS_SELECTOR,
                         f'ul[data-input-id="{search_input.get_attribute("id")}"]',
@@ -251,7 +250,7 @@ class HarmonyDriver:
                     logging.info(
                         "Filtering, normalizing, trim and lowercasing result text"
                     )
-                    text = self.driver.execute_script(
+                    text: str = self.driver.execute_script(
                         "return Array.from(arguments[0].childNodes)"
                         ".filter(n => n.nodeType === Node.TEXT_NODE)"
                         ".map(n => n.textContent)"
@@ -260,22 +259,26 @@ class HarmonyDriver:
                     )
 
                     logging.info("Checking if matching label")
-                    text = search_input.get_attribute("value")
-                    if text and text.strip().lower():
-                        logging.info("Found matching label, selecting it")
-                        first_result.click()
-                    else:
-                        logging.info("No matching label found")
-                        if self.manual_label_selection:
-                            logging.info("Manual label fixing needed")
-                            chime.info()
-                            input(
-                                "!!! Please check the label manually and then press enter."
-                            )
+                    pre_entered_text = search_input.get_attribute("value")
+                    if pre_entered_text is not None:
+                        pre_entered_text = pre_entered_text.strip().lower()
+                        if text and text == pre_entered_text:
+                            logging.info("Found matching label, selecting it")
+                            first_result.click()
                         else:
-                            logging.info("Automatically removing label entry")
-                            remove_label_list[i].click()
-                    logging.info("Label errors fixed")
+                            logging.info("No matching label found")
+                            if self.manual_label_selection:
+                                logging.info("Manual label fixing needed")
+                                chime.info()
+                                input(
+                                    "!!! Please check the label manually and then press enter."
+                                )
+                            else:
+                                logging.info("Automatically removing label entry")
+                                remove_label_list[i].click()
+                        logging.info("Label errors fixed")
+                    else:
+                        logging.info("Pre-entered label text is empty, cannot match")
             else:
                 logging.info("Unknown error type, manual intervention required")
                 chime.info()
