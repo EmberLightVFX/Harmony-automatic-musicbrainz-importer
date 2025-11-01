@@ -18,6 +18,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
 
 logging.basicConfig(
     level=logging.INFO,
@@ -461,9 +462,21 @@ class HarmonyDriver:
     def wait_find_element(
         self, by: str, identifier: str, timeout: int = 10
     ) -> WebElement:
-        return WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located((by, identifier))
-        )
+        while True:
+            try:
+                return WebDriverWait(self.driver, timeout).until(
+                    EC.presence_of_element_located((by, identifier))
+                )
+            except TimeoutException:
+                user_input = (
+                    input(
+                        f"Timeout waiting for element ({by}: {identifier}). Press 'r' to retry or 'c' to continue (may raise exception): "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if user_input != "r":
+                    raise
 
     def wait_find_elements(
         self, by: str, identifier: str, timeout: int = 10
