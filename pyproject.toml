@@ -1,11 +1,11 @@
 [project]
-name = "harmony-automatic-musicbrainz-importer"
+name = "harmony-assistant"
 version = "0.1.0"
-description = "Automatically import Spotify albums to MusicBrainz using Harmony"
+description = "Automatically import albums from streaming services to MusicBrainz using Harmony"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 license = "MIT"
-keywords = ["musicbrainz", "harmony", "spotify", "automation"]
+keywords = ["musicbrainz", "harmony", "streaming", "spotify", "tidal", "deezer", "itunes", "automation"]
 authors = [
     { name="EmberLightVFX" }
 ]
@@ -13,6 +13,6 @@ dependencies = [
     "chime>=0.7.0",
     "pillow>=12.0.0",
     "pyperclip>=1.11.0",
-    "python-dotenv>=1.1.1",
-    "selenium>=4.37.0",
+    "python-dotenv>=1.2.1",
+    "selenium>=4.38.0",
 ]
