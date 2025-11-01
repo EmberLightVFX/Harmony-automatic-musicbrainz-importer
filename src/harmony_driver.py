@@ -192,6 +192,7 @@ class HarmonyDriver:
             input(
                 "!!! Possible duplicate releases found. Please review them manually and then press Enter to continue."
             )
+            edit_note_button.click()
 
         logging.info("Look for errors")
         error_tabs = []
