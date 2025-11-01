@@ -33,7 +33,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--manual-review",
-        default=False,
+        default=True,
         action="store_true",
         help="Require manual review before publishing releases",
     )
