@@ -42,10 +42,16 @@ class HarmonyDriver:
         self,
         pause_on_found_release: bool,
         manual_review_before_publish: bool,
+        close_process_tab_after_processing: bool,
+        copy_MB_ID_to_clipboard: bool,
+        manual_label_selection: bool,
         song_urls: list[str],
     ):
         self.pause_on_found_release = pause_on_found_release
         self.manual_review_before_publish = manual_review_before_publish
+        self.close_process_tab_after_processing = close_process_tab_after_processing
+        self.copy_MB_ID_to_clipboard = copy_MB_ID_to_clipboard
+        self.manual_label_selection = manual_label_selection
         self.song_urls = song_urls
 
         self.harmony_tab: str | None = None
@@ -60,8 +66,8 @@ class HarmonyDriver:
     def process(self):
         logging.info(f"Starting Harmony processing of {len(self.song_urls)} albums.")
         chime.success()
-        for index, song_url in enumerate(self.song_urls, start=1):
-            logging.info(f"Processing album {index}/{len(self.song_urls)}")
+        for i, song_url in enumerate(self.song_urls, start=1):
+            logging.info(f"Processing album {i}/{len(self.song_urls)}")
             logging.info(f"Album URL: {song_url}")
             self.process_harmony(song_url)
         logging.info(f"Done processing {len(self.song_urls)} albums.")
@@ -101,8 +107,9 @@ class HarmonyDriver:
             link_text = link.text
             logging.info("Release already linked:")
             logging.info(link_text)
-            logging.info("Copied to your clipboard")
-            pyperclip.copy(link_text)
+            if self.copy_MB_ID_to_clipboard:
+                logging.info("Copied to your clipboard")
+                pyperclip.copy(link_text)
             if self.pause_on_found_release:
                 chime.info()
                 input("!!! Press Enter to continue to the next album...")
@@ -119,8 +126,16 @@ class HarmonyDriver:
         self.process_external_links_to_tracks()
         self.process_cover_art()
         logging.info(f"Finished processing album {song_url}")
-        logging.info("Closing processing tab")
-        self.driver.close()
+        if self.copy_MB_ID_to_clipboard:
+            elem = self.wait_find_element(
+                By.XPATH,
+                '//li[@data-provider="MusicBrainz"]//a[contains(@class,"provider-id")]',
+            )
+            logging.info(f"Copying MusicBrainz release ID to clipboard: {elem.text}")
+            pyperclip.copy(elem.text)
+        if self.close_process_tab_after_processing:
+            logging.info("Closing processing tab")
+            self.driver.close()
         self.driver.switch_to.window(self.harmony_tab)
 
     def process_musicbrainz_submission(self):
@@ -197,11 +212,76 @@ class HarmonyDriver:
             time.sleep(0.5)  # wait for tab content to load
             page_text = self.driver.find_element(By.TAG_NAME, "body").text
             if "You haven’t selected a label for" in page_text:
-                labels_list = self.wait_find_elements(
+                logging.info("Fetch release event fieldset")
+                release_event_fieldset = self.wait_find_element(
+                    By.XPATH, "//fieldset[legend[normalize-space(.)='Release event']]"
+                )
+                logging.info("Fixing missing label error")
+                label_search_list = release_event_fieldset.find_elements(
+                    By.CSS_SELECTOR, "span.autocomplete"
+                )
+                remove_label_list = release_event_fieldset.find_elements(
                     By.CLASS_NAME, "remove-release-label"
                 )
-                for label in labels_list:
-                    label.click()
+                for i, label_search in enumerate(label_search_list):
+                    logging.info(
+                        f"Trying to fix label {i + 1}/{len(label_search_list)}"
+                    )
+                    search_input = label_search.find_element(By.CSS_SELECTOR, "input")
+                    logging.info("Find search button")
+                    search_button = label_search.find_element(By.CSS_SELECTOR, "img")
+                    logging.info("Click label search")
+                    search_button.click()
+
+                    logging.info("Find correct search list")
+                    print(search_input.get_attribute("id"))
+                    search_list = self.wait_find_element(
+                        By.CSS_SELECTOR,
+                        f'ul[data-input-id="{search_input.get_attribute("id")}"]',
+                    )
+                    logging.info("Waiting for search list to appear")
+                    WebDriverWait(self.driver, timeout=10).until(
+                        lambda d: "display: none"
+                        not in (search_list.get_attribute("style") or "").lower()
+                    )
+
+                    logging.info("Grab first search result")
+                    first_result = search_list.find_element(By.XPATH, ".//li[1]//a")
+                    logging.info(
+                        "Filtering, normalizing, trim and lowercasing result text"
+                    )
+                    text = self.driver.execute_script(
+                        "return Array.from(arguments[0].childNodes)"
+                        ".filter(n => n.nodeType === Node.TEXT_NODE)"
+                        ".map(n => n.textContent)"
+                        ".join('').trim().toLowerCase();",
+                        first_result,
+                    )
+
+                    logging.info("Checking if matching label")
+                    text = search_input.get_attribute("value")
+                    if text and text.strip().lower():
+                        logging.info("Found matching label, selecting it")
+                        first_result.click()
+                    else:
+                        logging.info("No matching label found")
+                        if self.manual_label_selection:
+                            logging.info("Manual label fixing needed")
+                            chime.info()
+                            input(
+                                "!!! Please check the label manually and then press enter."
+                            )
+                        else:
+                            logging.info("Automatically removing label entry")
+                            remove_label_list[i].click()
+                    logging.info("Label errors fixed")
+            else:
+                logging.info("Unknown error type, manual intervention required")
+                chime.info()
+                input(
+                    "!!! An error was detected that cannot be automatically fixed. Please take care of it manually and then press enter."
+                )
+
             edit_note_button.click()
             error_tabs[0].click()
 
@@ -232,7 +312,8 @@ class HarmonyDriver:
             _, _ = self.open_in_new_tab(magicISRC_button)
 
             logging.info("Check if need to login")
-            time.sleep(1.5)
+            # Wait for a button to load so we know the page is ready
+            self.wait_find_element(By.ID, "check-isrcs-submit")
             page_text = self.wait_find_element(By.TAG_NAME, "body").text
             new_login = False
             if "Login to MusicBrainz" in page_text:
@@ -354,6 +435,12 @@ class HarmonyDriver:
         )
         logging.info("Sending cover file path to input")
         file_input.send_keys(cover_out_path)
+
+        logging.info("Set cover art type to 'Front'")
+        self.wait_find_element(
+            By.XPATH, "//li[label/span[normalize-space() = 'Front']]"
+        ).click()
+
         logging.info("Uploading cover art")
         self.wait_find_element(
             By.XPATH,
