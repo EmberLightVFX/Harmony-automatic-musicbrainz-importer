@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import shutil
 import sys
 import time
@@ -393,7 +394,6 @@ class HarmonyDriver:
         # Get and set cover art
         logging.info("Finding cover art candidates")
         cover_arts = self.wait_find_elements(By.CSS_SELECTOR, "figure.cover-image")
-        print(f"Found {len(cover_arts)} cover art candidates.")
         logging.info(f"Found {len(cover_arts)} cover art candidates.")
         best_overall = None  # tuple (area, width, height, data, src_url)
         for cover in cover_arts:
@@ -438,6 +438,23 @@ class HarmonyDriver:
             "input[type='file']",
             10,
         )
+
+        logging.info("Checking if cover art already exists on MusicBrainz")
+        cover_art_link = self.wait_find_element(
+            By.XPATH,
+            "//a[contains(@href, '/cover-art')]/bdi",
+            10,
+        )
+        text = cover_art_link.text
+        match = re.search(r"Cover art \((\d+)\)", text)
+        if match:
+            count = int(match.group(1))
+            if count > 0:
+                logging.info(
+                    f"Cover art already exists ({count} images), skipping upload"
+                )
+                return
+
         logging.info("Sending cover file path to input")
         file_input.send_keys(cover_out_path)
 
