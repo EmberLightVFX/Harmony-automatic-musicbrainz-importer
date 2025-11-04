@@ -101,23 +101,44 @@ class HarmonyDriver:
         import_button = self.wait_find_element(
             By.XPATH, "//input[@type='submit' and @value='Import into MusicBrainz']", 10
         )
+        update_release = False
         logging.info("Check if album already exists")
         page_text = self.driver.find_element(By.TAG_NAME, "body").text
-        if "is already linked to this" in page_text:
+        if (
+            "is already linked to this" in page_text
+            or "already exists on MusicBrainz" in page_text
+        ):
             logging.info("Album already linked to MusicBrainz release")
-            link = self.driver.find_element(
-                By.CSS_SELECTOR, "div p a[href*='musicbrainz.org/release']"
+            user_input = (
+                input(
+                    "!!! Do you want to update external links? Press 's' skip or 'c' to continue: "
+                )
+                .strip()
+                .lower()
             )
-            link_text = link.text
-            logging.info("Release already linked:")
-            logging.info(link_text)
-            if self.copy_MB_ID_to_clipboard:
-                logging.info("Copied to your clipboard")
-                pyperclip.copy(link_text)
-            if self.pause_on_found_release:
-                chime.info()
-                input("!!! Press Enter to continue to the next album...")
-            return
+            if user_input != "c":
+                link = self.driver.find_element(
+                    By.CSS_SELECTOR, "div p a[href*='musicbrainz.org/release']"
+                )
+                link_text = link.text
+                logging.info("Release already linked:")
+                logging.info(link_text)
+                if self.copy_MB_ID_to_clipboard:
+                    logging.info("Copied to your clipboard")
+                    pyperclip.copy(link_text)
+                if self.pause_on_found_release:
+                    chime.info()
+                    input("!!! Press Enter to continue to the next album...")
+                self.driver.close()
+                return
+            else:
+                logging.info("Change to update button")
+                update_release = True
+                import_button = self.wait_find_element(
+                    By.XPATH,
+                    "//input[@type='submit' and @value='Update external links in MusicBrainz']",
+                    10,
+                )
         else:
             logging.info("Album not yet linked, proceeding with import")
         if self.use_test_mb:
@@ -128,8 +149,11 @@ class HarmonyDriver:
         _, self.processing_tab = self.open_in_new_tab(
             import_button,
         )
-        self.process_musicbrainz_submission()
-        self.process_ISRC()
+        result = self.process_musicbrainz_submission(update_release)
+        if result is False:
+            logging.info("Skipping further processing for this album")
+            return
+
         if self.use_test_mb:
             logging.info("Modifying MusicBrainz links to use test server")
             self.modify_musicbrainz_links()
@@ -151,7 +175,7 @@ class HarmonyDriver:
             self.driver.close()
         self.driver.switch_to.window(self.harmony_tab)
 
-    def process_musicbrainz_submission(self):
+    def process_musicbrainz_submission(self, update_release: bool) -> bool:
         logging.info("Processing MusicBrainz submission")
         continue_button = self.wait_find_element(
             By.XPATH,
@@ -196,18 +220,34 @@ class HarmonyDriver:
             self.save_profile()
         edit_note_button.click()
 
-        logging.info("Check for release duplicates")
         time.sleep(0.5)
-        li_locator = "//li[a[normalize-space(text())='Release duplicates']]"
-        li = self.wait_find_element(By.XPATH, li_locator)
-        logging.info("Checking if duplicates found")
-        time.sleep(0.5)
-        if li.get_attribute("aria-disabled") is None:
-            chime.info()
-            input(
-                "!!! Possible duplicate releases found. Please review them manually and then press Enter to continue."
-            )
-            edit_note_button.click()
+        if update_release:
+            logging.info("Check if any changes were made to the release")
+            form_text = self.driver.find_element(By.ID, "form").text
+            if "You haven’t made any changes!" in form_text:
+                logging.info("No changes made to the release, skipping update.")
+                self.driver.close()
+                return False
+        else:
+            logging.info("Check for release duplicates")
+            li_locator = "//li[a[normalize-space(text())='Release duplicates']]"
+            li = self.wait_find_element(By.XPATH, li_locator)
+            logging.info("Checking if duplicates found")
+            time.sleep(1)
+            if li.get_attribute("aria-disabled") is None:
+                chime.info()
+                user_input = (
+                    input(
+                        "!!! Possible duplicate releases found, please review! Press 's' skip this release or 'c' to continue: "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if user_input != "c":
+                    self.driver.close()
+                    return False
+
+                edit_note_button.click()
 
         logging.info("Look for errors")
         error_tabs = []
@@ -321,6 +361,7 @@ class HarmonyDriver:
             120,
         )
         logging.info("Release published successfully")
+        return True
 
     def process_ISRC(self):
         try:
