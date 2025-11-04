@@ -636,3 +636,17 @@ class HarmonyDriver:
             ff_profile_folder,
             ignore=shutil.ignore_patterns("parent.lock", "lock", ".parentlock"),
         )
+
+    def modify_musicbrainz_links(self):
+        self.driver.execute_script(r"""
+        var links = document.querySelectorAll('a[href*="musicbrainz.org"]');
+        for (var i = 0; i < links.length; i++) {
+            links[i].href = links[i].href.replace(/https:\/\/musicbrainz\.org/g, 'https://test.musicbrainz.org');
+            links[i].href = links[i].href.replace(/https%3A%2F%2Fmusicbrainz\.org/g, 'https%3A%2F%2Ftest.musicbrainz.org');
+        }
+        var forms = document.querySelectorAll('form[action*="musicbrainz.org"]');
+        for (var i = 0; i < forms.length; i++) {
+            forms[i].action = forms[i].action.replace(/https:\/\/musicbrainz\.org/g, 'https://test.musicbrainz.org');
+            forms[i].action = forms[i].action.replace(/https%3A%2F%2Fmusicbrainz\.org/g, 'https%3A%2F%2Ftest.musicbrainz.org');
+        }
+        """)
