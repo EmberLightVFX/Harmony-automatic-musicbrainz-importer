@@ -9,6 +9,7 @@ if __name__ == "__main__":
         close_tabs: bool
         copy_id: bool
         manual_labels: bool
+        use_test_mb: bool
         urls: list[str] | None
         urls_file: str | None
 
@@ -55,6 +56,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable manual label selection for error fixing",
     )
+    parser.add_argument(
+        "--use-test-mb",
+        default=False,
+        action="store_true",
+        help="Use the MusicBrainz test server for imports",
+    )
 
     args = parser.parse_args(namespace=DefVal)
 
@@ -76,6 +83,7 @@ if __name__ == "__main__":
         close_process_tab_after_processing=args.close_tabs,
         copy_MB_ID_to_clipboard=args.copy_id,
         manual_label_selection=args.manual_labels,
+        use_test_mb=args.use_test_mb,
         song_urls=song_urls,
     )
 

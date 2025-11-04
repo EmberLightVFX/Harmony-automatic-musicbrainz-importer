@@ -47,6 +47,7 @@ class HarmonyDriver:
         close_process_tab_after_processing: bool,
         copy_MB_ID_to_clipboard: bool,
         manual_label_selection: bool,
+        use_test_mb: bool,
         song_urls: list[str],
     ):
         self.pause_on_found_release = pause_on_found_release
@@ -54,6 +55,7 @@ class HarmonyDriver:
         self.close_process_tab_after_processing = close_process_tab_after_processing
         self.copy_MB_ID_to_clipboard = copy_MB_ID_to_clipboard
         self.manual_label_selection = manual_label_selection
+        self.use_test_mb = use_test_mb
         self.song_urls = song_urls
 
         self.harmony_tab: str | None = None
@@ -118,6 +120,9 @@ class HarmonyDriver:
             return
         else:
             logging.info("Album not yet linked, proceeding with import")
+        if self.use_test_mb:
+            logging.info("Modifying MusicBrainz links to use test server")
+            self.modify_musicbrainz_links()
 
         logging.info("Open processing page in new tab")
         _, self.processing_tab = self.open_in_new_tab(
@@ -125,6 +130,12 @@ class HarmonyDriver:
         )
         self.process_musicbrainz_submission()
         self.process_ISRC()
+        if self.use_test_mb:
+            logging.info("Modifying MusicBrainz links to use test server")
+            self.modify_musicbrainz_links()
+            logging.info("Skipping ISRC submission in test MB mode")
+        else:
+            self.process_ISRC()
         self.process_external_links_to_tracks()
         self.process_cover_art()
         logging.info(f"Finished processing album {song_url}")
@@ -151,7 +162,10 @@ class HarmonyDriver:
 
         new_login = False
         if self.driver.title.startswith("Log in"):
-            print("Login to MusicBrainz required.")
+            logging.info("Login to MusicBrainz required.")
+            if self.use_test_mb:
+                logging.info("Modifying MusicBrainz login to use test server")
+                os.environ["mb_pass"] = "mb"
             if os.getenv("mb_user") and os.getenv("mb_pass"):
                 mb_user = os.getenv("mb_user")
                 mb_pass = os.getenv("mb_pass")
